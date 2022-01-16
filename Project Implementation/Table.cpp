@@ -71,6 +71,27 @@ void Table::apply_operator(std::stack<int>& numbers, const std::string& operatio
 	int left_number = numbers.top();
 	numbers.pop();
 
+	if (operation == "?:")
+	{
+		if (numbers.empty())
+		{
+			throw std::logic_error("Incorrect expression");
+		}
+
+		int condition = numbers.top();
+		numbers.pop();
+		if (condition > 1)
+		{
+			numbers.push(left_number);
+		}
+		else
+		{
+			numbers.push(right_number);
+		}
+
+		return;
+	}
+
 	numbers.push(apply(left_number, right_number, operation));
 }
 
@@ -161,13 +182,6 @@ bool Table::matching_brackets(char left, char right) const
 	return left == '(' && right == ')' || left == '[' && right == ']' || left == '{' && right == '}';
 }
 
-Table::Table(int rows, int columns)
-{
-	max_rows = rows;
-	max_columns = columns;
-	table.resize(rows);
-}
-
 void Table::set_expression(const Data& data)
 {
 	if (table[data.row].empty())
@@ -204,6 +218,16 @@ int Table::get_value(int row, int column) const
 	return 0;
 }
 
+const std::string& Table::get_expression(int row, int column) const
+{
+	const Data* cell = get_cell(row, column);
+	if (cell != nullptr)
+	{
+		return cell->expression;
+	}
+	return "-";
+}
+
 int Table::shunting_yard(const std::string& expression) const
 {
 	std::stack<int> numbers;
@@ -220,6 +244,10 @@ int Table::shunting_yard(const std::string& expression) const
 		{
 			numbers.push(get_number(expression, i));
 			--i;
+		}
+		else if (expression[i] == 'R')
+		{
+			numbers.push(get_value_from_address(expression, ++i));
 		}
 		else if (is_open_bracket(expression[i]))
 		{
@@ -243,7 +271,13 @@ int Table::shunting_yard(const std::string& expression) const
 		else
 		{
 			std::string operation(1, expression[i]);
-			if (is_operator(expression[i + 1]))
+			if (expression[i] == '?')
+			{
+				numbers.push(get_number(expression, ++i));
+				operation += expression[i];
+				
+			}
+			else if (is_operator(expression[i + 1]))
 			{
 				operation += expression[i + 1];
 				++i;
@@ -284,6 +318,53 @@ int Table::shunting_yard(const std::string& expression) const
 	return value;
 }
 
+int Table::get_value_from_address(const std::string& expression, size_t& index) const
+{
+	if (!is_digit(expression[index]))
+	{
+		throw std::logic_error("Incorrect expression!");
+	}
+
+	int row = get_number(expression, index);
+	if (expression[index++] != 'C')
+	{
+		throw std::logic_error("Incorrect expression!");
+	}
+	int column = get_number(expression, index);
+	--index;
+
+	return shunting_yard(get_cell(row, column)->expression);
+}
+
+int Table::get_sum_or_count(const Data& first, const Data& second, int type) const
+{
+	int result = 0;
+	for (size_t i = first.row; i <= second.row; ++i)
+	{
+		size_t size = table[i].size();
+		for (size_t j = 0; j < size; ++j)
+		{
+			if (table[i][j].column < first.column)
+			{
+				continue;
+			}
+			else if (table[i][j].column <= second.column)
+			{
+				if (type == 0)
+				{
+					result += shunting_yard(table[i][j].expression);
+				}
+				else
+				{
+					++result;
+				}
+			}
+		}
+	}
+	return result;
+}
+
+
 const Table::Data* Table::get_cell(int row, int column) const
 {
 	size_t size = table[row].size();
@@ -312,6 +393,26 @@ int Table::get_table_columns() const
 	return max_columns;
 }
 
+int Table::sum(const Data& first, const Data& second) const
+{
+	return get_sum_or_count(first, second, 0);
+}
+
+int Table::count(const Data& first, const Data& second) const
+{
+	return get_sum_or_count(first, second, 1);
+}
+
+void Table::print_all_values() const
+{
+	print(get_value);
+}
+
+void Table::print_all_expressions() const
+{
+	print(get_expression);
+}
+
 void Table::plus_or_minus_one(int row, int column, char symbol)
 {	Data* cell = get_cell(row, column);
 	if (cell != nullptr)
@@ -326,6 +427,17 @@ void Table::plus_or_minus_one(int row, int column, char symbol)
 			cell->expression += ")-1";
 		}
 	}
-	std::cout << "Cell with row " << row << " and column " << column << " has no expression!" << std::endl;
+	else
+	{
+		std::cout << "Cell with row " << row << " and column " << column << " has no expression!" << std::endl;
+	}
 }
+
+void Table::set_rows_and_columns(int rows, int columns)
+{
+	max_rows = rows;
+	max_columns = columns;
+	table.resize(max_rows);
+}
+
 
