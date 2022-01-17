@@ -218,7 +218,7 @@ int Table::get_value(int row, int column) const
 	return 0;
 }
 
-const std::string& Table::get_expression(int row, int column) const
+const std::string Table::get_expression(int row, int column) const
 {
 	const Data* cell = get_cell(row, column);
 	if (cell != nullptr)
@@ -333,10 +333,10 @@ int Table::get_value_from_address(const std::string& expression, size_t& index) 
 	int column = get_number(expression, index);
 	--index;
 
-	return shunting_yard(get_cell(row, column)->expression);
+	return get_value(row, column);
 }
 
-int Table::get_sum_or_count(const Data& first, const Data& second, int type) const
+int Table::get_sum_or_count(const Data& first, const Data& second, bool is_sum) const
 {
 	int result = 0;
 	for (size_t i = first.row; i <= second.row; ++i)
@@ -344,13 +344,9 @@ int Table::get_sum_or_count(const Data& first, const Data& second, int type) con
 		size_t size = table[i].size();
 		for (size_t j = 0; j < size; ++j)
 		{
-			if (table[i][j].column < first.column)
+			if (table[i][j].column >= first.column && table[i][j].column <= second.column)
 			{
-				continue;
-			}
-			else if (table[i][j].column <= second.column)
-			{
-				if (type == 0)
+				if (is_sum)
 				{
 					result += shunting_yard(table[i][j].expression);
 				}
@@ -359,18 +355,22 @@ int Table::get_sum_or_count(const Data& first, const Data& second, int type) con
 					++result;
 				}
 			}
+			
 		}
 	}
 	return result;
 }
-
 
 const Table::Data* Table::get_cell(int row, int column) const
 {
 	size_t size = table[row].size();
 	for (size_t i = 0; i < size; ++i)
 	{
-		if (table[row][i].column == column)
+		if (column < table[row][i].column)
+		{
+			break;
+		}
+		else if (table[row][i].column == column)
 		{
 			return &table[row][i];
 		}
@@ -395,49 +395,116 @@ int Table::get_table_columns() const
 
 int Table::sum(const Data& first, const Data& second) const
 {
-	return get_sum_or_count(first, second, 0);
+	return get_sum_or_count(first, second, true);
 }
 
 int Table::count(const Data& first, const Data& second) const
 {
-	return get_sum_or_count(first, second, 1);
+	return get_sum_or_count(first, second, false);
 }
 
 void Table::print_all_values() const
 {
-	print(get_value);
+	print([&](int row, int column) {return get_value(row, column); });
 }
 
 void Table::print_all_expressions() const
 {
-	print(get_expression);
+	print([&](int row, int column) {return get_expression(row, column); });
 }
 
-void Table::plus_or_minus_one(int row, int column, char symbol)
+void Table::plus_plus(int row, int column)
+{
+	plus_or_minus_one(row, column, [](std::string& string) {string += ")+1"; });
+}
+
+void Table::minus_minus(int row, int column)
+{
+	plus_or_minus_one(row, column, [](std::string& string) {string += ")-1"; });
+}
+
+template <class Predicate>
+void Table::plus_or_minus_one(int row, int column, Predicate predicate)
 {	Data* cell = get_cell(row, column);
 	if (cell != nullptr)
 	{
 		cell->expression.insert(0, "(");
-		if (symbol == '+')
-		{
-			cell->expression += ")+1";
-		}
-		else
-		{
-			cell->expression += ")-1";
-		}
+		predicate(cell->expression);
 	}
 	else
 	{
-		std::cout << "Cell with row " << row << " and column " << column << " has no expression!" << std::endl;
+		throw std::logic_error("There is no value in the cell!");
 	}
 }
 
-void Table::set_rows_and_columns(int rows, int columns)
+void Table::set_rows()
 {
-	max_rows = rows;
-	max_columns = columns;
 	table.resize(max_rows);
 }
 
+void Table::clear_table()
+{
+	max_rows = 0;
+	max_columns = 0;
+	table.clear();
+}
 
+template<class Predicate>
+void Table::print(Predicate predicate) const
+{
+	for (int i = 0; i < max_rows; ++i)
+	{
+		for (int j = 0; j < max_columns; ++j)
+		{
+			std::cout << predicate(i, j) << "\t";
+		}
+		std::cout << std::endl;
+	}
+}
+
+std::ostream& operator<<(std::ostream& out, const Table& table)
+{
+	out << table.max_rows << ' ' << table.max_columns << std::endl;
+	for (size_t i = 0; i < table.max_rows; ++i)
+	{
+		for (size_t j = 0; j < table.max_columns; ++j)
+		{
+			out << table.get_expression(i, j);
+			if (j != table.max_columns - 1)
+			{
+				out << ',';
+			}
+		}
+		std::cout << std::endl;
+	}
+
+	return out;
+}
+
+std::istream& operator>>(std::istream& in, Table& table)
+{
+	in >> table.max_rows >> table.max_columns;
+	in.ignore();
+	table.set_rows();
+
+	std::string line;
+	int rows = 0;
+	while (std::getline(in, line))
+	{
+		std::stringstream stream(line);
+		std::string word;
+
+		int columns = 0;
+		while (std::getline(stream, word, ','))
+		{
+			if (word != "-")
+			{
+				table.set_expression({ rows,columns,word });
+			}
+			++columns;
+		}
+		++rows;
+	}
+
+	return in;
+}
