@@ -17,6 +17,12 @@ struct Data
 		column = _column;
 		expression = _expression;
 	}
+
+	void set_rows_and_columns(int _row, int _column)
+	{
+		row = _row;
+		column = _column;
+	}
 };
 
 class Table

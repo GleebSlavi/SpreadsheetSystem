@@ -18,7 +18,11 @@ int Table::get_number(const std::string& expression, size_t& index) const
 
 int Table::get_operation_priority(const std::string& operation) const
 {
-	if (operation == "?:")
+	if (operation == "(" || operation == "[" || operation == "{")
+	{
+		return 0;
+	}
+	else if (operation == "?:")
 	{
 		return 1;
 	}
@@ -46,7 +50,7 @@ int Table::get_operation_priority(const std::string& operation) const
 	{
 		return 7;
 	}
-	return 0;
+	return -1;
 }
 
 void Table::apply_operator(std::stack<int>& numbers, const std::string& operation) const
@@ -141,13 +145,9 @@ int Table::apply(int left, int right, const std::string& operation) const
 	{
 		return left && right;
 	}
-	else if (operation == "||")
-	{
-		return left || right;
-	}
 	else
 	{
-		throw std::logic_error("Incorrect operator");
+		return left || right;
 	}
 }
 
@@ -287,7 +287,14 @@ int Table::get_value(int row, int column) const
 	const Data* cell = get_cell(row, column);
 	if (cell != nullptr)
 	{
-		return shunting_yard({cell->row,cell->column,cell->expression});
+		try
+		{
+			return shunting_yard({ cell->row,cell->column,cell->expression });
+		}
+		catch(std::exception& ex)
+		{
+			std::cout << ex.what() << std::endl;
+		}
 	}
 	return 0;
 }
@@ -324,7 +331,7 @@ int Table::shunting_yard(const Data& cell) const
 			Data data;
 			if (!valid_address(cell, ++i, data))
 			{
-				throw std::logic_error("Bad expression");
+				throw std::logic_error("Incorrect expression!");
 			}
 			numbers.push(get_value(data.row, data.column));
 			--i;
@@ -344,7 +351,7 @@ int Table::shunting_yard(const Data& cell) const
 
 			if (operators.empty() || !matching_brackets(operators.top()[0], cell.expression[i]))
 			{
-				throw std::logic_error("Incorrect expression");
+				throw std::logic_error("Incorrect expression!");
 			}
 			operators.pop();
 		}
@@ -363,9 +370,9 @@ int Table::shunting_yard(const Data& cell) const
 				++i;
 			}
 
-			if (get_operation_priority(operation) == 0)
+			if (get_operation_priority(operation) == -1)
 			{
-				throw std::logic_error("Incorrect operator");
+				throw std::logic_error("Incorrect operator!");
 			}
 			
 			while (!operators.empty() && get_operation_priority(operators.top()) > get_operation_priority(operation))
@@ -424,7 +431,14 @@ int Table::get_sum_or_count(const Data& first, const Data& second, bool is_sum) 
 			{
 				if (is_sum)
 				{
-					result += shunting_yard(table[i][j]);
+					try
+					{
+						result += shunting_yard(table[i][j]);
+					}
+					catch (char symbol)
+					{
+						std::cerr << symbol << " - wrong symbol" << std::endl;
+					}
 				}
 				else
 				{
@@ -481,6 +495,7 @@ int Table::count(const Data& first, const Data& second) const
 
 void Table::print_all_values() const
 {
+	//try catch
 	print([&](int row, int column) {return get_value(row, column); });
 }
 
@@ -491,12 +506,26 @@ void Table::print_all_expressions() const
 
 void Table::plus_plus(int row, int column)
 {
-	plus_or_minus_one(row, column, [](std::string& string) {string += ")+1"; });
+	try
+	{
+		plus_or_minus_one(row, column, [](std::string& string) {string += ")+1"; });
+	}
+	catch (const char* msg)
+	{
+		std::cout << msg << std::endl;
+	}
 }
 
 void Table::minus_minus(int row, int column)
 {
-	plus_or_minus_one(row, column, [](std::string& string) {string += ")-1"; });
+	try
+	{
+		plus_or_minus_one(row, column, [](std::string& string) {string += ")-1"; });
+	}
+	catch (const char* msg)
+	{
+		std::cout << msg << std::endl;
+	}
 }
 
 void Table::set_table(int rows, int columns)

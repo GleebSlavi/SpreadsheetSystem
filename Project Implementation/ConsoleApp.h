@@ -9,7 +9,6 @@ private:
 	bool is_loaded = false;
 
 	void get_stream_strings(const std::string&, std::string&, std::string&, std::string&) const;
-	bool row_and_column_check(int&, const std::string&,size_t&) const;
 	bool csv_file_check(const std::string&) const;
 	bool get_and_check_address(Data&, const std::string&) const;
 
@@ -20,8 +19,10 @@ private:
 	void exit();
 
 	template <class FirstFunc, class SecondFunc >
-	bool print_command(const std::string&, FirstFunc, SecondFunc) const;
+	void print_command(const std::string&, FirstFunc, SecondFunc) const;
 public:
-	void app();
+	void run_app();
+
+	//to delete
 	void print();
 };

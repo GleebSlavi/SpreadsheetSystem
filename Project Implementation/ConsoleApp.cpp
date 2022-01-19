@@ -14,6 +14,12 @@ void ConsoleApp::get_stream_strings(const std::string& stream, std::string& firs
 		else if (second.empty())
 		{
 			second = word;
+			if (first == "SAVE" || first == "LOAD")
+			{
+				std::string route;
+				std::getline(string_stream, route);
+				second += route;
+			}
 		}
 		else if (third.empty())
 		{
@@ -22,24 +28,8 @@ void ConsoleApp::get_stream_strings(const std::string& stream, std::string& firs
 	}
 }
 
-bool ConsoleApp::row_and_column_check(int& number, const std::string& address, size_t& index) const
-{
-	if (address[index] != 'R' || address[index] != 'C')
-	{
-		return false;
-	}
-	++index;
-
-	while (address[index] >= '0' && address[index] <= '9')
-	{
-		number = number * 10 + (address[index] - '0');
-		++index;
-	}
-	return true;
-}
-
 template <class FirstFunc, class SecondFunc>
-bool ConsoleApp::print_command(const std::string& third, FirstFunc all, SecondFunc single) const
+void ConsoleApp::print_command(const std::string& third, FirstFunc all, SecondFunc single) const
 {
 	size_t index = 0;
 	Data data;
@@ -50,7 +40,7 @@ bool ConsoleApp::print_command(const std::string& third, FirstFunc all, SecondFu
 	}
 	else if (get_and_check_address(data, third))
 	{
-		std::cout << single(row, column) << std::endl;
+		std::cout << single(data.row, data.column) << std::endl;
 	}
 	else
 	{
@@ -189,19 +179,17 @@ bool ConsoleApp::get_and_check_address(Data& data, const std::string& address) c
 	return true;
 }
 
-void ConsoleApp::app()
+void ConsoleApp::run_app()
 {
 	while (1)
 	{
 		std::string stream_command;
-		std::cout << "Enter command: ";
+		std::cout << "> ";
 		std::getline(std::cin, stream_command);
 
 		std::string first, second, third;
 		get_stream_strings(stream_command, first, second, third);
 		
-		size_t index = 0;
-		int row, column;
 		Data data;
 		if (first == "HELP")
 		{
@@ -217,7 +205,7 @@ void ConsoleApp::app()
 			{
 				if (get_and_check_address(data,second))
 				{
-					table.set_expression({ row, column, third });
+					table.set_expression({ data.row, data.column, third });
 				}
 				else
 				{
@@ -255,7 +243,7 @@ void ConsoleApp::app()
 		{
 			if (is_loaded)
 			{
-				if (!csv_file_check(second))
+				if (csv_file_check(second))
 				{
 					save(second);
 				}
@@ -271,7 +259,7 @@ void ConsoleApp::app()
 		}
 		else if (first == "LOAD")
 		{
-			if (!csv_file_check(second))
+			if (csv_file_check(second))
 			{
 				load(second);
 			}
@@ -286,7 +274,7 @@ void ConsoleApp::app()
 			{
 				if (get_and_check_address(data, second))
 				{
-					table.plus_plus(row, column);
+					table.plus_plus(data.row, data.column);
 				}
 				else
 				{
@@ -304,7 +292,7 @@ void ConsoleApp::app()
 			{
 				if (get_and_check_address(data, second))
 				{
-					table.minus_minus(row, column);
+					table.minus_minus(data.row, data.column);
 				}
 				else
 				{
@@ -316,7 +304,26 @@ void ConsoleApp::app()
 		{
 			if (is_loaded)
 			{
-			
+				Data second_data;
+				if (get_and_check_address(data, second) && get_and_check_address(second_data, third))
+				{
+					int save_row = second_data.row, save_column = second_data.column;
+					second_data.set_rows_and_columns(std::min(save_row, data.row), std::min(save_column, data.column));
+					data.set_rows_and_columns(std::max(save_row, data.row), std::max(save_column, data.column));
+
+					if (first == "SUM")
+					{
+						std::cout << table.sum(data, second_data) << std::endl;
+					}
+					else
+					{
+						std::cout << table.count(data, second_data) << std::endl;
+					}
+				}
+				else
+				{
+					std::cout << "Invalid address!" << std::endl;
+				}
 			}
 			else
 			{
@@ -333,6 +340,7 @@ void ConsoleApp::app()
 			std::cout << "Wrong command!" << std::endl;
 		}
 	}
+	std::cout << std::endl;
 }
 
 void ConsoleApp::print()
