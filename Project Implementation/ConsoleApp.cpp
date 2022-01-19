@@ -42,13 +42,13 @@ template <class FirstFunc, class SecondFunc>
 bool ConsoleApp::print_command(const std::string& third, FirstFunc all, SecondFunc single) const
 {
 	size_t index = 0;
-	int row, column;
+	Data data;
 	if (third == "ALL")
 	{
 		all;
 		std::cout << std::endl;
 	}
-	else if (valid_address_check(row, column, third, index))
+	else if (get_and_check_address(data, third))
 	{
 		std::cout << single(row, column) << std::endl;
 	}
@@ -159,16 +159,34 @@ void ConsoleApp::exit()
 	std::cout << "Goodbye!" << std::endl;
 }
 
-bool ConsoleApp::valid_address_check(int& row, int& column, const std::string& address, size_t index)
-{
-	return row_and_column_check(row, address, index) && row_and_column_check(column, address, index) &&
-		row >= 0 && row < table.get_table_rows() && column >= 0 && column < table.get_table_columns();
-}
-
 bool ConsoleApp::csv_file_check(const std::string& file) const
 {
 	size_t size = file.size();
 	return file[size - 1] == 'v' && file[size - 2] == 's' && file[size - 3] == 'c' && file[size - 4] == '.';
+}
+
+bool ConsoleApp::get_and_check_address(Data& data, const std::string& address) const
+{
+	size_t index = 0;
+	if (address[index] != 'R' && (address[index + 1] < '0' || address[index + 1] > '9'))
+	{
+		return false;
+	}
+	++index;
+
+	data.row = table.get_number(address, index);
+	if (address[index] != 'C' && (address[index + 1] < '0' || address[index + 1] > '9'))
+	{
+		return false;
+	}
+	++index;
+	data.column = table.get_number(address, index);
+
+	if (data.row < 0 || data.row >= table.get_table_rows() || data.column < 0 || data.column >= table.get_table_columns())
+	{
+		return false;
+	}
+	return true;
 }
 
 void ConsoleApp::app()
@@ -184,6 +202,7 @@ void ConsoleApp::app()
 		
 		size_t index = 0;
 		int row, column;
+		Data data;
 		if (first == "HELP")
 		{
 			help();
@@ -196,7 +215,7 @@ void ConsoleApp::app()
 		{
 			if (is_loaded)
 			{
-				if (valid_address_check(row, column, second, index))
+				if (get_and_check_address(data,second))
 				{
 					table.set_expression({ row, column, third });
 				}
@@ -265,7 +284,7 @@ void ConsoleApp::app()
 		{
 			if (is_loaded)
 			{
-				if (valid_address_check(row, column, second, index))
+				if (get_and_check_address(data, second))
 				{
 					table.plus_plus(row, column);
 				}
@@ -283,7 +302,7 @@ void ConsoleApp::app()
 		{
 			if (is_loaded)
 			{
-				if (valid_address_check(row, column, second, index))
+				if (get_and_check_address(data, second))
 				{
 					table.minus_minus(row, column);
 				}

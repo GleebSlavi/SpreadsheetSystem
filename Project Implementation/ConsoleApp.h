@@ -1,6 +1,5 @@
 #pragma once
 #include "Table.h"
-#include <sstream>
 #include <fstream>
 
 class ConsoleApp
@@ -11,8 +10,8 @@ private:
 
 	void get_stream_strings(const std::string&, std::string&, std::string&, std::string&) const;
 	bool row_and_column_check(int&, const std::string&,size_t&) const;
-	bool valid_address_check(int&, int&, const std::string&, size_t);
 	bool csv_file_check(const std::string&) const;
+	bool get_and_check_address(Data&, const std::string&) const;
 
 	void save(const std::string&) const;
 	void load(const std::string&);
