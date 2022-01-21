@@ -35,7 +35,7 @@ void ConsoleApp::save(const std::string& file)
 	{
 		out << table;
 		is_saved = true;
-		std::cout << "File saved successfully!" << std::endl;
+		std::cout << file << " saved successfully!" << std::endl;
 	}
 	else
 	{
@@ -51,7 +51,7 @@ void ConsoleApp::load(const std::string& file)
 		table.clear_table();
 		in >> table;
 		is_loaded = true;
-		std::cout << "Table loaded successfully!" << std::endl;
+		std::cout << file << " loaded successfully!" << std::endl;
 	}
 	else
 	{
@@ -111,19 +111,30 @@ void ConsoleApp::exit()
 		while (1)
 		{
 			std::cin >> symbol;
-			std::cout << std::endl;
 			if (symbol != 'Y' && symbol != 'N')
 			{
 				std::cout << "Wrong symbol! Please enter Y/N: ";
 			}
+			else
+			{
+				break;
+			}
 		}
+		std::cin.ignore();
 		
 		std::string file;
 		if (symbol == 'Y')
 		{
 			std::cout << "Enter file to save it to: ";
 			std::getline(std::cin, file);
-			save(file);
+			if (csv_file_check(file))
+			{
+				save(file);
+			}
+			else
+			{
+				std::cout << "Not csv file! Changes won't be saved!" << std::endl;
+			}
 		}
 	}
 	std::cout << "Goodbye!" << std::endl;
@@ -186,6 +197,7 @@ void ConsoleApp::run_app()
 				if (get_and_check_address(data,second))
 				{
 					table.set_expression({ data.row, data.column, third });
+					std::cout << "Expression set!" << std::endl;
 				}
 				else
 				{
@@ -289,12 +301,12 @@ void ConsoleApp::run_app()
 					{
 						if (first == "++")
 						{
-							table.plus_or_minus_one(data.row, data.column, true);
+							table.plus_plus(data.row, data.column);
 							std::cout << "Added +1 to the expression!" << std::endl;
 						}
 						else
 						{
-							table.plus_or_minus_one(data.row, data.column, false);
+							table.minus_minus(data.row, data.column);
 							std::cout << "Added -1 to the expression!" << std::endl;
 						}
 					}

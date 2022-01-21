@@ -204,6 +204,8 @@ bool Table::is_valid_address(const Data& expr_cell, size_t& index, Data& address
 		}
 		--index;
 	}
+	--address.row;
+	--address.column;
 
 	if ((address.row >= 0 && address.row < max_rows) && (address.column >= 0 && address.column < max_columns))
 	{
@@ -406,7 +408,7 @@ bool Table::shunting_yard(const Data& cell, int& value) const
 					continue;
 				}
 			}
-			else if (is_operator(cell.expression[i + 1]))
+			else if (is_operator(cell.expression[i + 1]) && cell.expression[i+1] != '+' && cell.expression[i + 1] != '-')
 			{
 				operation += cell.expression[i++];
 			}
@@ -503,7 +505,7 @@ int Table::get_sum_or_count(const Data& first, const Data& second, bool is_sum) 
 		size_t size = table[i].size();
 		for (size_t j = 0; j < size; ++j)
 		{
-			if (table[i][j].column >= (size_t)first.column && table[i][j].column <= (size_t)second.column)
+			if (table[i][j].column >= first.column && table[i][j].column <= second.column)
 			{
 				if (is_sum)
 				{
@@ -562,6 +564,16 @@ int Table::count(const Data& first, const Data& second) const
 	return get_sum_or_count(first, second, false);
 }
 
+void Table::plus_plus(int row, int column)
+{
+	plus_or_minus_one(row, column, [&](std::string& expression) {expression += ")+1"; });
+}
+
+void Table::minus_minus(int row, int column)
+{
+	plus_or_minus_one(row, column, [&](std::string& expression) {expression += ")-1"; });
+}
+
 void Table::print_all_values() const
 {
 	print([&](int row, int column) {return get_value(row, column); });
@@ -579,7 +591,8 @@ void Table::set_table(int row, int column)
 	table.resize(row);
 }
 
-void Table::plus_or_minus_one(int row, int column, bool is_plus)
+template <class Predicate>
+void Table::plus_or_minus_one(int row, int column, Predicate predicate)
 {
 	Data* cell = get_cell(row, column);
 	int number;
@@ -587,12 +600,7 @@ void Table::plus_or_minus_one(int row, int column, bool is_plus)
 	if (cell != nullptr && shunting_yard({ cell->row,cell->column,cell->expression }, number))
 	{
 		cell->expression.insert(0, "(");
-		if (is_plus)
-		{
-			cell->expression += ")+1";
-			return;
-		}
-		cell->expression += ")-1";
+		predicate(cell->expression);
 	}
 	else
 	{
@@ -614,11 +622,8 @@ void Table::print(Predicate predicate) const
 	{
 		for (int j = 0; j < max_columns; ++j)
 		{
-			predicate(i, j);
-			if (j != max_columns - 1)
-			{
-				std::cout << ", ";
-			}
+			std::cout<< predicate(i, j) << ", ";
+		
 		}
 		std::cout << std::endl;
 	}
@@ -629,9 +634,9 @@ std::ostream& operator<<(std::ostream& out, const Table& table)
 	out << table.max_rows << ' ' << table.max_columns;
 	out << std::endl;
 
-	for (size_t i = 0; i < (size_t)table.max_rows; ++i)
+	for (size_t i = 0; i < table.max_rows; ++i)
 	{
-		for (size_t j = 0; j < (size_t)table.max_columns; ++j)
+		for (size_t j = 0; j < table.max_columns; ++j)
 		{
 			std::string expression = table.get_expression(i, j);
 			out << expression;
@@ -641,7 +646,7 @@ std::ostream& operator<<(std::ostream& out, const Table& table)
 			}
 			if (j < table.max_columns - 1)
 			{
-				out << ", ";
+				out << ",";
 			}
 		}
 		out << std::endl;

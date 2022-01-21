@@ -58,6 +58,9 @@ private:
 	template <class Predicate>
 	void print(Predicate predicate) const;
 
+	template <class Predicate>
+	void plus_or_minus_one(int, int, Predicate);
+
 public:
 	Table() = default;
 	
@@ -74,10 +77,11 @@ public:
 	int sum(const Data&, const Data&) const;
 	int count(const Data&, const Data&) const;
 
+	void plus_plus(int, int);
+	void minus_minus(int, int);
+
 	void print_all_values() const;
 	void print_all_expressions() const;
-
-	void plus_or_minus_one(int, int, bool);
 
 	friend std::ostream& operator<<(std::ostream&, const Table&);
 	friend std::istream& operator>>(std::istream&, Table&);
