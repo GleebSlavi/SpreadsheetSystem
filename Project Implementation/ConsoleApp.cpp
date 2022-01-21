@@ -28,12 +28,13 @@ void ConsoleApp::get_stream_strings(const std::string& stream, std::string& firs
 	}
 }
 
-void ConsoleApp::save(const std::string& file) const
+void ConsoleApp::save(const std::string& file)
 {
 	std::ofstream out(file);
 	if (out.is_open())
 	{
 		out << table;
+		is_saved = true;
 		std::cout << "File saved successfully!" << std::endl;
 	}
 	else
@@ -103,28 +104,27 @@ void ConsoleApp::operators() const
 
 void ConsoleApp::exit()
 {
-	char symbol;
-	std::cout << "Do you want to save the table? Enter Y/N: ";
-	std::cin >> symbol;
-
-	if (symbol == 'Y' || symbol == 'y')
+	if (!is_saved)
 	{
-		std::string file;
-		std::cout << "Enter file to save to: ";
-		std::cin >> file;
-
-		if (csv_file_check(file))
+		char symbol;
+		std::cout << "Table not saved! Do you want to save it? Enter Y/N: ";
+		while (1)
 		{
+			std::cin >> symbol;
+			std::cout << std::endl;
+			if (symbol != 'Y' && symbol != 'N')
+			{
+				std::cout << "Wrong symbol! Please enter Y/N: ";
+			}
+		}
+		
+		std::string file;
+		if (symbol == 'Y')
+		{
+			std::cout << "Enter file to save it to: ";
+			std::getline(std::cin, file);
 			save(file);
 		}
-		else
-		{
-			std::cout << "You entered other file than .csv file, so the changes won't be saved!" << std::endl;
-		}
-	}
-	else if (symbol != 'N' && symbol != 'n')
-	{
-		std::cout << "You entered wrong symbol, so the changes won't be saved!" << std::endl;
 	}
 	std::cout << "Goodbye!" << std::endl;
 }
@@ -290,10 +290,12 @@ void ConsoleApp::run_app()
 						if (first == "++")
 						{
 							table.plus_or_minus_one(data.row, data.column, true);
+							std::cout << "Added +1 to the expression!" << std::endl;
 						}
 						else
 						{
 							table.plus_or_minus_one(data.row, data.column, false);
+							std::cout << "Added -1 to the expression!" << std::endl;
 						}
 					}
 					catch (const std::logic_error& ex)
