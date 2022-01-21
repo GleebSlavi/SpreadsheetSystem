@@ -18,11 +18,6 @@ private:
 	void operators() const;
 	void exit();
 
-	template <class FirstFunc, class SecondFunc >
-	void print_command(const std::string&, FirstFunc, SecondFunc) const;
 public:
 	void run_app();
-
-	//to delete
-	void print();
 };

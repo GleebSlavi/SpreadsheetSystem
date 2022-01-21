@@ -16,13 +16,9 @@ int Table::get_number(const std::string& expression, size_t& index) const
 	return number;
 }
 
-int Table::get_operation_priority(const std::string& operation) const
+int Table::get_operator_priority(const std::string& operation) const
 {
-	if (operation == "(" || operation == "[" || operation == "{")
-	{
-		return 0;
-	}
-	else if (operation == "?:")
+	if (operation == "?:")
 	{
 		return 1;
 	}
@@ -50,14 +46,14 @@ int Table::get_operation_priority(const std::string& operation) const
 	{
 		return 7;
 	}
-	return -1;
+	return 0;
 }
 
-void Table::apply_operator(std::stack<int>& numbers, const std::string& operation) const
+bool Table::apply_operator(std::stack<int>& numbers, const std::string& operation, bool is_if_else, int number) const
 {
 	if (numbers.empty())
 	{
-		throw std::logic_error("Incorrect expression");
+		return false;
 	}
 	int right_number = numbers.top();
 	numbers.pop();
@@ -65,12 +61,7 @@ void Table::apply_operator(std::stack<int>& numbers, const std::string& operatio
 	if (operation == "!")
 	{
 		numbers.push(!right_number);
-		return;
-	}
-	
-	if (numbers.empty())
-	{
-		throw std::logic_error("Incorrect expression");
+		return true;
 	}
 	int left_number = numbers.top();
 	numbers.pop();
@@ -79,12 +70,12 @@ void Table::apply_operator(std::stack<int>& numbers, const std::string& operatio
 	{
 		if (numbers.empty())
 		{
-			throw std::logic_error("Incorrect expression");
+			return false;
 		}
 
 		int condition = numbers.top();
 		numbers.pop();
-		if (condition > 1)
+		if (condition > 0)
 		{
 			numbers.push(left_number);
 		}
@@ -93,10 +84,19 @@ void Table::apply_operator(std::stack<int>& numbers, const std::string& operatio
 			numbers.push(right_number);
 		}
 
-		return;
+		return true;
+	}
+	else if (operation == "/" && right_number == 0)
+	{
+		return false;
 	}
 
 	numbers.push(apply(left_number, right_number, operation));
+	if (is_if_else)
+	{
+		numbers.push(number);
+	}
+	return true;
 }
 
 int Table::apply(int left, int right, const std::string& operation) const
@@ -182,78 +182,116 @@ bool Table::matching_brackets(char left, char right) const
 	return left == '(' && right == ')' || left == '[' && right == ']' || left == '{' && right == '}';
 }
 
-int Table::get_address(const Data& data, size_t& index, bool& is_relative, bool is_row) const
+bool Table::is_valid_address(const Data& expr_cell, size_t& index, Data& address) const
 {
-	if (data.expression[index] != '[' && !is_digit(data.expression[index]))
+	if (expr_cell.expression[index] != '[' && !is_digit(expr_cell.expression[index]))
 	{
-		throw std::logic_error("Bad expression");
+		return false;
 	}
 
-	char symbol = ' ';
-	if (is_relative)
+	if (expr_cell.expression[index] == '[')
 	{
-		if (data.expression[index] == '[')
+		if (!is_relative_address(expr_cell, ++index, address))
 		{
-			++index;
-			if (data.expression[index] != '+' && data.expression[index] != '-' && data.expression[index] != '0')
-			{
-				throw std::logic_error("Bad expression");
-			}
-
-			if (data.expression[index] != '0')
-			{
-				symbol = data.expression[index++];
-			}
-		}
-		else
-		{
-			is_relative = false;
+			return false;
 		}
 	}
-
-	int number = get_number(data.expression, index);
-	if (is_relative)
+	else if (is_digit(expr_cell.expression[index]))
 	{
-		if (data.expression[index] != ']')
+		if (!is_absolute_address(expr_cell.expression, index, address))
 		{
-			throw std::logic_error("Bad expression");
+			return false;
 		}
-
-		relative_addressing(data, number, symbol, is_row);
-		++index;
+		--index;
 	}
-	else if (!is_relative && data.expression[index] == ']')
+
+	if ((address.row >= 0 && address.row < max_rows) && (address.column >= 0 && address.column < max_columns))
 	{
-		throw std::logic_error("Bad expression");
+		return true;
 	}
-
-	return number;
+	return false;
 }
 
-void Table::relative_addressing(const Data& data, int& number, char symbol, bool is_row) const
+bool Table::is_relative_address(const Data& expr_cell, size_t& index, Data& address) const
 {
+	if (!is_relative(expr_cell.expression[index]))
+	{
+		return false;
+	}
+
+	char symbol;
+	if (expr_cell.expression[index] != '0')
+	{
+		symbol = expr_cell.expression[index];
+		++index;
+	}
+
+	if (!is_digit(expr_cell.expression[index]))
+	{
+		return false;
+	}
+	address.row = get_number(expr_cell.expression, index);
+
 	if (symbol == '+')
 	{
-		if (is_row)
-		{
-			number = data.row + number;
-		}
-		else
-		{
-			number = data.column + number;
-		}
+		address.row = expr_cell.row + address.row;
 	}
 	else
 	{
-		if (is_row)
-		{
-			number = data.row - number;
-		}
-		else
-		{
-			number = data.column - number;
-		}
+		address.row = expr_cell.row - address.row;
 	}
+
+	if (expr_cell.expression[index] != ']' || expr_cell.expression[index + 1] != 'C'
+		|| expr_cell.expression[index + 2] != '[' || !is_relative(expr_cell.expression[index + 3]))
+	{
+		return false;
+	}
+	index += 3;
+
+	if (expr_cell.expression[index] != '0')
+	{
+		symbol = expr_cell.expression[index];
+		++index;
+	}
+
+	if (!is_digit(expr_cell.expression[index]))
+	{
+		return false;
+	}
+	address.column = get_number(expr_cell.expression, index);
+
+	if (symbol == '+')
+	{
+		address.column = expr_cell.column + address.column;
+	}
+	else
+	{
+		address.column = expr_cell.column - address.column;
+	}
+
+	if (expr_cell.expression[index] != ']')
+	{
+		return false;
+	}
+	return true;
+}
+
+bool Table::is_relative(char symbol) const
+{
+	return symbol == '+' || symbol == '-' || symbol == '0';
+}
+
+bool Table::is_absolute_address(const std::string& expression, size_t& index, Data& address) const
+{
+	address.row = get_number(expression, index);
+
+	if (expression[index] != 'C' || !is_digit(expression[index + 1]))
+	{
+		return false;
+	}
+	address.column = get_number(expression, ++index);
+
+	return true;
 }
 
 void Table::set_expression(const Data& data)
@@ -285,16 +323,11 @@ void Table::set_expression(const Data& data)
 int Table::get_value(int row, int column) const
 {
 	const Data* cell = get_cell(row, column);
-	if (cell != nullptr)
+	int value;
+
+	if (cell != nullptr && shunting_yard({ cell->row,cell->column,cell->expression }, value))
 	{
-		try
-		{
-			return shunting_yard({ cell->row,cell->column,cell->expression });
-		}
-		catch(std::exception& ex)
-		{
-			std::cout << ex.what() << std::endl;
-		}
+		return value;
 	}
 	return 0;
 }
@@ -306,10 +339,10 @@ const std::string Table::get_expression(int row, int column) const
 	{
 		return cell->expression;
 	}
-	return "-";
+	return "";
 }
 
-int Table::shunting_yard(const Data& cell) const
+bool Table::shunting_yard(const Data& cell, int& value) const
 {
 	std::stack<int> numbers;
 	std::stack<std::string> operators;
@@ -329,12 +362,11 @@ int Table::shunting_yard(const Data& cell) const
 		else if (cell.expression[i] == 'R')
 		{
 			Data data;
-			if (!valid_address(cell, ++i, data))
+			if (!is_valid_address(cell, ++i, data))
 			{
-				throw std::logic_error("Incorrect expression!");
+				return false;
 			}
 			numbers.push(get_value(data.row, data.column));
-			--i;
 		}
 		else if (is_open_bracket(cell.expression[i]))
 		{
@@ -345,39 +377,48 @@ int Table::shunting_yard(const Data& cell) const
 		{
 			while (!operators.empty() && !is_open_bracket(operators.top()[0]))
 			{
-				apply_operator(numbers, operators.top());
+				apply_operator(numbers, operators.top(), false);
 				operators.pop();
 			}
 
 			if (operators.empty() || !matching_brackets(operators.top()[0], cell.expression[i]))
 			{
-				throw std::logic_error("Incorrect expression!");
+				return false;
 			}
 			operators.pop();
 		}
 		else
 		{
 			std::string operation(1, cell.expression[i]);
-			if (cell.expression[i] == '?')
+			int number;
+			if (operation == "?")
 			{
-				numbers.push(get_number(cell.expression, ++i));
+				if (!if_else_operator(cell, i, number))
+				{
+					return false;
+				}
 				operation += cell.expression[i];
-				
+			}
+			else if (operation == "-" || operation == "+")
+			{
+				if (plus_or_minus_number(cell.expression, i, numbers))
+				{
+					continue;
+				}
 			}
 			else if (is_operator(cell.expression[i + 1]))
 			{
-				operation += cell.expression[i + 1];
-				++i;
+				operation += cell.expression[i++];
 			}
 
-			if (get_operation_priority(operation) == -1)
+			if (get_operator_priority(operation) == 0)
 			{
-				throw std::logic_error("Incorrect operator!");
+				return false;
 			}
-			
-			while (!operators.empty() && get_operation_priority(operators.top()) > get_operation_priority(operation))
+
+			while (!operators.empty() && get_operator_priority(operators.top()) > get_operator_priority(operation))
 			{
-				apply_operator(numbers, operators.top());
+				apply_operator(numbers, operators.top(), true, number);
 				operators.pop();
 			}
 			operators.push(operation);
@@ -386,38 +427,73 @@ int Table::shunting_yard(const Data& cell) const
 
 	while (!operators.empty())
 	{
-		apply_operator(numbers, operators.top());
+		apply_operator(numbers, operators.top(), false);
 		operators.pop();
 	}
 
 	if (numbers.empty())
 	{
-		throw std::logic_error("Incorrect expression");
+		return false;
 	}
-	int value = numbers.top();
+	value = numbers.top();
 	numbers.pop();
 
 	if (!numbers.empty())
 	{
-		throw std::logic_error("Incorrect expression");
+		return false;
 	}
-
-	return value;
+	return true;
 }
 
-bool Table::valid_address(const Data& expr_data, size_t& index, Data& data) const
+bool Table::if_else_operator(const Data& expr_data, size_t& index, int& int_number) const
 {
-	bool is_relative = true;
-	data.row = get_address(expr_data, index, is_relative, true);
-	if (expr_data.expression[index++] != 'C')
+	std::string number;
+	int stopper = expr_data.expression.size() - 1;
+
+	do
+	{
+		++index;
+		number += expr_data.expression[index];
+
+	} while (index != stopper && expr_data.expression[index] != ':');
+	number.pop_back();
+
+	if (index == stopper || !shunting_yard({ expr_data.row,expr_data.column,number }, int_number))
 	{
 		return false;
 	}
-	data.column = get_address(expr_data, index, is_relative, false);
-
-	return data.row >= 0 && data.row < max_rows&& data.column >= 0 && data.column < max_columns;
+	return true;
 }
 
+bool Table::plus_or_minus_number(const std::string& expression, size_t& index, std::stack<int>& numbers) const
+{
+	char symbol = expression[index];
+	size_t back_index = index;
+
+	while (back_index != 0 && expression[back_index - 1] == ' ')
+	{
+		--back_index;
+	}
+
+	if(back_index!=0)
+	{
+		--back_index;
+		if (is_close_bracket(expression[back_index]) || is_digit(expression[back_index]))
+		{
+			return false;
+		}
+	}
+	int number= get_number(expression, ++index);
+	--index;
+
+	if (symbol == '-')
+	{
+		number *= (-1);
+	}
+
+	numbers.push(number);
+	return true;
+}
 
 int Table::get_sum_or_count(const Data& first, const Data& second, bool is_sum) const
 {
@@ -427,18 +503,11 @@ int Table::get_sum_or_count(const Data& first, const Data& second, bool is_sum) 
 		size_t size = table[i].size();
 		for (size_t j = 0; j < size; ++j)
 		{
-			if (table[i][j].column >= first.column && table[i][j].column <= second.column)
+			if (table[i][j].column >= (size_t)first.column && table[i][j].column <= (size_t)second.column)
 			{
 				if (is_sum)
 				{
-					try
-					{
-						result += shunting_yard(table[i][j]);
-					}
-					catch (char symbol)
-					{
-						std::cerr << symbol << " - wrong symbol" << std::endl;
-					}
+					result += get_value(i,j);
 				}
 				else
 				{
@@ -495,7 +564,6 @@ int Table::count(const Data& first, const Data& second) const
 
 void Table::print_all_values() const
 {
-	//try catch
 	print([&](int row, int column) {return get_value(row, column); });
 }
 
@@ -504,54 +572,32 @@ void Table::print_all_expressions() const
 	print([&](int row, int column) {return get_expression(row, column); });
 }
 
-void Table::plus_plus(int row, int column)
+void Table::set_table(int row, int column)
 {
-	try
-	{
-		plus_or_minus_one(row, column, [](std::string& string) {string += ")+1"; });
-	}
-	catch (const char* msg)
-	{
-		std::cout << msg << std::endl;
-	}
+	max_rows = row;
+	max_columns = column;
+	table.resize(row);
 }
 
-void Table::minus_minus(int row, int column)
+void Table::plus_or_minus_one(int row, int column, bool is_plus)
 {
-	try
-	{
-		plus_or_minus_one(row, column, [](std::string& string) {string += ")-1"; });
-	}
-	catch (const char* msg)
-	{
-		std::cout << msg << std::endl;
-	}
-}
+	Data* cell = get_cell(row, column);
+	int number;
 
-void Table::set_table(int rows, int columns)
-{
-	max_rows = rows;
-	max_columns = columns;
-	table.resize(rows);
-}
-
-template <class Predicate>
-void Table::plus_or_minus_one(int row, int column, Predicate predicate)
-{	Data* cell = get_cell(row, column);
-	if (cell != nullptr)
+	if (cell != nullptr && shunting_yard({ cell->row,cell->column,cell->expression }, number))
 	{
 		cell->expression.insert(0, "(");
-		predicate(cell->expression);
+		if (is_plus)
+		{
+			cell->expression += ")+1";
+			return;
+		}
+		cell->expression += ")-1";
 	}
 	else
 	{
-		throw std::logic_error("There is no value in the cell!");
+		throw std::logic_error("There is no expression!");
 	}
-}
-
-void Table::set_rows()
-{
-	table.resize(max_rows);
 }
 
 void Table::clear_table()
@@ -568,7 +614,11 @@ void Table::print(Predicate predicate) const
 	{
 		for (int j = 0; j < max_columns; ++j)
 		{
-			std::cout << predicate(i, j) << "\t";
+			predicate(i, j);
+			if (j != max_columns - 1)
+			{
+				std::cout << ", ";
+			}
 		}
 		std::cout << std::endl;
 	}
@@ -576,18 +626,25 @@ void Table::print(Predicate predicate) const
 
 std::ostream& operator<<(std::ostream& out, const Table& table)
 {
-	out << table.max_rows << ' ' << table.max_columns << std::endl;
-	for (size_t i = 0; i < table.max_rows; ++i)
+	out << table.max_rows << ' ' << table.max_columns;
+	out << std::endl;
+
+	for (size_t i = 0; i < (size_t)table.max_rows; ++i)
 	{
-		for (size_t j = 0; j < table.max_columns; ++j)
+		for (size_t j = 0; j < (size_t)table.max_columns; ++j)
 		{
-			out << table.get_expression(i, j);
-			if (j != table.max_columns - 1)
+			std::string expression = table.get_expression(i, j);
+			out << expression;
+			if (!expression.empty())
 			{
-				out << ',';
+				out << ';';
+			}
+			if (j < table.max_columns - 1)
+			{
+				out << ", ";
 			}
 		}
-		std::cout << std::endl;
+		out << std::endl;
 	}
 
 	return out;
@@ -597,25 +654,26 @@ std::istream& operator>>(std::istream& in, Table& table)
 {
 	in >> table.max_rows >> table.max_columns;
 	in.ignore();
-	table.set_rows();
+	table.table.resize(table.max_rows);
 
 	std::string line;
-	int rows = 0;
+	int row = 0;
 	while (std::getline(in, line))
 	{
 		std::stringstream stream(line);
-		std::string word;
+		std::string expression;
 
-		int columns = 0;
-		while (std::getline(stream, word, ','))
+		int column = 0;
+		while (std::getline(stream, expression, ','))
 		{
-			if (word != "-")
+			expression.pop_back();
+			if (!expression.empty())
 			{
-				table.set_expression({ rows,columns,word });
+				table.set_expression({ row,column,expression });
 			}
-			++columns;
+			++column;
 		}
-		++rows;
+		++row;
 	}
 
 	return in;
