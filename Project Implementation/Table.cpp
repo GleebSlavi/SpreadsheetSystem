@@ -596,7 +596,7 @@ void Table::plus_or_minus_one(int row, int column, bool is_plus)
 	}
 	else
 	{
-		throw std::logic_error("There is no expression!");
+		throw std::logic_error("Expression can't be turned into number!");
 	}
 }
 
@@ -666,9 +666,9 @@ std::istream& operator>>(std::istream& in, Table& table)
 		int column = 0;
 		while (std::getline(stream, expression, ','))
 		{
-			expression.pop_back();
 			if (!expression.empty())
 			{
+				expression.pop_back();
 				table.set_expression({ row,column,expression });
 			}
 			++column;
