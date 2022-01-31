@@ -46,10 +46,14 @@ int Table::get_operator_priority(const std::string& operation) const
 	{
 		return 7;
 	}
+	else if (operation == "!")
+	{
+		return 8;
+	}
 	return 0;
 }
 
-bool Table::apply_operator(std::stack<int>& numbers, const std::string& operation, bool is_if_else, int number) const
+bool Table::apply_operator(std::stack<int>& numbers, const std::string& operation) const
 {
 	if (numbers.empty())
 	{
@@ -92,10 +96,6 @@ bool Table::apply_operator(std::stack<int>& numbers, const std::string& operatio
 	}
 
 	numbers.push(apply(left_number, right_number, operation));
-	if (is_if_else)
-	{
-		numbers.push(number);
-	}
 	return true;
 }
 
@@ -203,9 +203,9 @@ bool Table::is_valid_address(const Data& expr_cell, size_t& index, Data& address
 			return false;
 		}
 		--index;
+		--address.row;
+		--address.column;
 	}
-	--address.row;
-	--address.column;
 
 	if ((address.row >= 0 && address.row < max_rows) && (address.column >= 0 && address.column < max_columns))
 	{
@@ -221,7 +221,7 @@ bool Table::is_relative_address(const Data& expr_cell, size_t& index, Data& addr
 		return false;
 	}
 
-	char symbol;
+	char symbol = ' ';
 	if (expr_cell.expression[index] != '0')
 	{
 		symbol = expr_cell.expression[index];
@@ -298,7 +298,7 @@ bool Table::is_absolute_address(const std::string& expression, size_t& index, Da
 
 void Table::set_expression(const Data& data)
 {
-	if (table[data.row].empty())
+	if (table[data.row].empty() && !data.expression.empty())
 	{
 		table[data.row].push_back(data);
 	}
@@ -309,16 +309,28 @@ void Table::set_expression(const Data& data)
 		{
 			if (data.column == table[data.row][i].column)
 			{
+				if (data.expression.empty())
+				{
+					table[data.row].erase(table[data.row].begin() + i);
+					return;
+				}
 				table[data.row][i].expression = data.expression;
 				return;
 			}
-			else if (data.column < table[data.row][i].column)
+			else if (data.column < table[data.row][i].column && !data.expression.empty())
 			{
 				table[data.row].insert(table[data.row].begin() + i, data);
 				return;
 			}
+
+			if (i == size - 1)
+			{
+				if (!data.expression.empty())
+				{
+					table[data.row].push_back(data);
+				}
+			}
 		}
-		table[data.row].push_back(data);
 	}
 }
 
@@ -379,7 +391,7 @@ bool Table::shunting_yard(const Data& cell, int& value) const
 		{
 			while (!operators.empty() && !is_open_bracket(operators.top()[0]))
 			{
-				apply_operator(numbers, operators.top(), false);
+				apply_operator(numbers, operators.top());
 				operators.pop();
 			}
 
@@ -393,6 +405,7 @@ bool Table::shunting_yard(const Data& cell, int& value) const
 		{
 			std::string operation(1, cell.expression[i]);
 			int number;
+
 			if (operation == "?")
 			{
 				if (!if_else_operator(cell, i, number))
@@ -403,7 +416,7 @@ bool Table::shunting_yard(const Data& cell, int& value) const
 			}
 			else if (operation == "-" || operation == "+")
 			{
-				if (plus_or_minus_number(cell.expression, i, numbers))
+				if (plus_or_minus_number(cell, i, numbers))
 				{
 					continue;
 				}
@@ -420,8 +433,13 @@ bool Table::shunting_yard(const Data& cell, int& value) const
 
 			while (!operators.empty() && get_operator_priority(operators.top()) > get_operator_priority(operation))
 			{
-				apply_operator(numbers, operators.top(), true, number);
+				apply_operator(numbers, operators.top());
 				operators.pop();
+			}
+
+			if (operation == "?:")
+			{
+				numbers.push(number);
 			}
 			operators.push(operation);
 		}
@@ -429,7 +447,7 @@ bool Table::shunting_yard(const Data& cell, int& value) const
 
 	while (!operators.empty())
 	{
-		apply_operator(numbers, operators.top(), false);
+		apply_operator(numbers, operators.top());
 		operators.pop();
 	}
 
@@ -467,26 +485,49 @@ bool Table::if_else_operator(const Data& expr_data, size_t& index, int& int_numb
 	return true;
 }
 
-bool Table::plus_or_minus_number(const std::string& expression, size_t& index, std::stack<int>& numbers) const
+bool Table::plus_or_minus_number(const Data& data, size_t& index, std::stack<int>& numbers) const
 {
-	char symbol = expression[index];
+	char symbol = data.expression[index];
 	size_t back_index = index;
 
-	while (back_index != 0 && expression[back_index - 1] == ' ')
+	while (back_index != 0 && data.expression[back_index - 1] == ' ')
 	{
 		--back_index;
 	}
 
-	if(back_index!=0)
+	int number;
+	if(back_index != 0)
 	{
 		--back_index;
-		if (is_close_bracket(expression[back_index]) || is_digit(expression[back_index]))
+		if (is_close_bracket(data.expression[back_index]) || is_digit(data.expression[back_index]))
+		{
+			return false;
+		}
+		number = get_number(data.expression, ++index);
+		--index;
+	}
+	else if (is_open_bracket(data.expression[index + 1]))
+	{
+		++index;
+		char bracket = data.expression[index];
+		std::string expression;
+		do
+		{
+			expression += data.expression[index];
+			++index;
+		} while (!matching_brackets(bracket, data.expression[index]));
+		expression += data.expression[index];
+
+		if (!shunting_yard({ data.row,data.column,expression }, number))
 		{
 			return false;
 		}
 	}
-	int number= get_number(expression, ++index);
-	--index;
+	else
+	{
+		number = get_number(data.expression, ++index);
+		--index;
+	}
 
 	if (symbol == '-')
 	{

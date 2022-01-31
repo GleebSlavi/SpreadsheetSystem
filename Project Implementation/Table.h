@@ -1,9 +1,15 @@
-#pragma once
+﻿#pragma once
 #include <iostream>
 #include <string>
 #include <vector>
 #include <stack>
 #include <sstream>
+
+// За функцията shunting_yard съм използвал код от доцент Армянов, но съм го променил
+// да работи и за адреси и за повече оператори, също така и get_number го видях от него.
+// Неконстантната функция get_cell я видях от асистент Александър Димитров.
+// При десериализацията четенето с while циклите го видях от интернет, но не съм сигурен точно откъде
+
 
 struct Data
 {
@@ -43,10 +49,10 @@ private:
 	bool is_relative_address(const Data&, size_t&, Data&) const;
 	bool is_relative(char) const;
 	bool is_absolute_address(const std::string&, size_t&, Data&) const;
-	bool apply_operator(std::stack<int>&, const std::string&, bool, int number = 0) const;
+	bool apply_operator(std::stack<int>&, const std::string&) const;
 	bool shunting_yard(const Data&, int&) const;
 	bool if_else_operator(const Data&, size_t&, int&) const;
-	bool plus_or_minus_number(const std::string&, size_t&, std::stack<int>&) const;
+	bool plus_or_minus_number(const Data&, size_t&, std::stack<int>&) const;
 
 	int get_operator_priority(const std::string&) const;
 	int apply(int, int, const std::string&) const;
@@ -86,7 +92,7 @@ public:
 	friend std::ostream& operator<<(std::ostream&, const Table&);
 	friend std::istream& operator>>(std::istream&, Table&);
 
-	//to_delete
-	void set_table(int ,int);
+	//for the tests
+	void set_table(int, int);
 };
 

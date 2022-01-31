@@ -21,8 +21,8 @@
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{4c44e53f-d0db-4274-b412-61dad4beaad9}</ProjectGuid>
-    <RootNamespace>ProjectImplementation</RootNamespace>
+    <ProjectGuid>{9b945053-25d6-48c2-8c95-38986e4b07de}</ProjectGuid>
+    <RootNamespace>ProjectTests</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -139,13 +139,8 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="ConsoleApp.cpp" />
-    <ClCompile Include="Main.cpp" />
-    <ClCompile Include="Table.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="ConsoleApp.h" />
-    <ClInclude Include="Table.h" />
+    <ClCompile Include="..\Project Implementation\Table.cpp" />
+    <ClCompile Include="Tests.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

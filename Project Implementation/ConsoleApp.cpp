@@ -155,13 +155,13 @@ bool ConsoleApp::get_and_check_address(Data& data, const std::string& address) c
 	}
 	++index;
 
-	data.row = table.get_number(address, index);
+	data.row = table.get_number(address, index) - 1;
 	if (address[index] != 'C' && (address[index + 1] < '0' || address[index + 1] > '9'))
 	{
 		return false;
 	}
 	++index;
-	data.column = table.get_number(address, index);
+	data.column = table.get_number(address, index) - 1;
 
 	if (data.row < 0 || data.row >= table.get_table_rows() || data.column < 0 || data.column >= table.get_table_columns())
 	{
